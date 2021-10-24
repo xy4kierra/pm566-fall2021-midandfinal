@@ -3,7 +3,7 @@ title: "World Happiness Report 2021-Midterm Project"
 author: "Xiaoyu Zhu"
 date: "10/23/2021"
 output: 
-  html_document:
+  github_document:
     toc: TRUE
     toc_float: TRUE
 editor_options: 
