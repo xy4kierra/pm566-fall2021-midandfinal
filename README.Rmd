@@ -1,0 +1,238 @@
+---
+title: "World Happiness Report 2021-Midterm Project"
+author: "Xiaoyu Zhu"
+date: "10/23/2021"
+output: 
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+  github_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::is_html_output(exclude = "gfm") 
+```
+
+
+# Introduction
+
+
+World Happiness Report 2021 use data that come from the Gallup World Poll surveys from 2018 to 2020. They are based on answers to the main life evaluation question asked in the poll. This is called the Cantril ladder: it asks respondents to think of a ladder, with the best possible life for them being a 10, and the worst possible life being a 0. They are then asked to rate their own current lives on that 0 to 10 scale. The rankings are from nationally representative samples, for the years 2018-2020. They are based entirely on the survey scores, using the Gallup weights to make the estimates representative. 
+
+the data concludes main variable that is Ladder.score, leading to the core index of people happiness. There are other six variables that researchers put into data frame:
+Logged.GDP.per.capita: means logged GDP every captical
+Social.support: the quality of social support 
+Healthy.life.expectancy: healthy or not
+Freedom.to.make.life.choices: people's feeling on freedom to make life choice
+Generosity: the quality of being kind and generous.
+Perceptions.of.corruption: the perceptions of corruption
+
+And we want to illustrates data storytelling with the World Happiness Report (2021) data. Also we want to know what variable is related to people happiness from perspective of country.
+
+```{r}
+# install and import packages
+# install.packages("ggchicklet", repos = "https://cinc.rud.is") # for rounded corners 
+# install.packages("cowplot") #patch plots
+# install.packages("hrbrthemes", repos = c("https://cinc.rud.is", "https://cloud.r-project.org/")) #beautiful theme
+# install.packages("waffle", repos = "https://cinc.rud.is") #waffle plot
+# install.packages("ggalt") #dumbell plot
+# install.packages("GGally") # correlation matrix
+# install.packages("remotes") # to install the relative weight package
+# remotes::install_github("martinctc/rwa") # relative weight analysis
+```
+
+```{r}
+# import library
+library(tidyverse) 
+library(ggchicklet)
+library(cowplot)
+library(hrbrthemes)
+library(ggalt)
+library(GGally)
+library(rwa)
+library(psych)
+```
+
+
+```{r}
+#read the data
+happy_2021<-read.csv("world-happiness-report-2021.csv")
+
+```
+
+
+# Method
+```{r}
+#briefly check the data
+head(happy_2021)
+```
+
+```{r}
+describe(happy_2021)
+```
+
+```{r}
+# see the distribution of people happiness
+happy_2021%>%
+ggplot(aes(x=Regional.indicator,y=Ladder.score,color=Regional.indicator))+
+  geom_point()+
+  geom_boxplot()
+```
+```{r}
+# see the distribution of GDP
+happy_2021%>%
+ggplot(aes(x=Regional.indicator,y=Logged.GDP.per.capita,color=Regional.indicator))+
+  geom_point()+
+  geom_boxplot()
+```
+
+```{r}
+# see the distribution of social support
+happy_2021%>%
+ggplot(aes(x=Regional.indicator,y=Social.support,color=Regional.indicator))+
+  geom_point()+
+  geom_boxplot()
+```
+
+```{r}
+# see the distribution of life expectancy
+happy_2021%>% 
+ggplot(aes(x=Regional.indicator,y=Healthy.life.expectancy,color=Regional.indicator))+
+  geom_point()+
+  geom_boxplot()
+```
+
+```{r}
+# see the distribution of freedom to make life choices
+happy_2021%>%
+ggplot(aes(x=Regional.indicator,y=Freedom.to.make.life.choices,color=Regional.indicator))+
+  geom_point()+
+  geom_boxplot()
+```
+
+# Preliminary Result
+
+## Fig 1. Ten happinest countries in the world
+```{r}
+# dimensions
+dimensions <- c('Ladder.score','Logged.GDP.per.capita','Social.support','Healthy.life.expectancy','Freedom.to.make.life.choices','Generosity','Perceptions.of.corruption')
+
+# map country to regions
+country_region_dict = happy_2021 %>% select(country = Country.name, region = Regional.indicator) %>% unique()
+
+happy_2021_long <- happy_2021 %>% 
+    select(country = Country.name, all_of(dimensions)) %>%
+    mutate(absence_of_corruption = 1- Perceptions.of.corruption) %>%
+    pivot_longer(cols = c(all_of(dimensions),'absence_of_corruption'), names_to = 'dimension', values_to = 'score') %>%
+    filter(dimension != "Perceptions.of.corruption")
+
+happy_2021_tranformed <- happy_2021_long %>%
+    group_by(dimension) %>%
+    mutate(min_value = min(score),
+             max_value = max(score)) %>%
+    mutate(score_pct = (score-min_value)/(max_value-min_value)) %>%
+    ungroup()
+
+# get top 10
+happy_2021_top10 <- happy_2021_tranformed %>%
+    filter(dimension == "Ladder.score") %>%
+    slice_max(score, n = 10) %>%
+    mutate(cat = 'top_10', 
+           country_rank = rank(-score),
+           country_label = paste0(country, ' (', country_rank, ')'))
+
+# get bottom 10
+happy_2021_bottom10 <- happy_2021_tranformed %>%
+    filter(dimension == "Ladder.score") %>%
+    mutate(country_rank = rank(score),
+           country_label = paste0(country, ' (', country_rank, ')')) %>%
+    slice_min(score, n = 10) %>%
+    mutate(cat = 'bottom_10')
+
+```
+
+
+```{r}
+
+ggplot(happy_2021_top10, aes(x = reorder(country_label, score))) + 
+  geom_chicklet(aes(y = 10, fill = 4.88), width = 0.88) +
+  geom_chicklet(aes(y = score, fill = score), width = 0.88) +
+  geom_text(aes(y = score), label = round(happy_2021_top10$score,2), nudge_y = 0.4, size = 6) + 
+  scale_y_continuous(expand = c(0, 0.1), position = "right", limits = c(0, 10)) +
+  scale_fill_gradient2(low = '#bc9575', high = '#7FB188', mid = 'white', midpoint = 5) + 
+  coord_flip() +
+  labs(y="Happinest possible life = 10", x = '',
+       title="10 Happiest Countries in the World")
+```
+
+## Fig 2. Ten saddest countries in the world
+```{r}
+
+ggplot(happy_2021_bottom10, aes(x = reorder(country_label, score))) + 
+  geom_chicklet(aes(y = 10, fill = 4.88), width = 0.88) +
+  geom_chicklet(aes(y = score, fill = score), width = 0.88) +
+  geom_text(aes(y = score), label = round(happy_2021_bottom10$score,2), nudge_y = 0.4, size = 6) + 
+  scale_y_continuous(expand = c(0, 0.1), position = "right", limits = c(0, 10)) +
+  scale_fill_gradient2(low = '#656667', high = '#bc9575', mid = 'white', midpoint = 5) + 
+  coord_flip() +
+  labs(y="Happinest possible life = 10", x = '',
+       title="10 Saddest Countries in the World",
+       subtitle="Countries torn by poverty and war",
+       caption="Source: The World Happiness Report 2021") 
+  
+```
+
+
+## Fig 3. Correlation Matrix
+### What factors most strongly correlate with happiness?
+```{r}
+happy_cor <- happy_2021 %>% 
+    select(corruption = Perceptions.of.corruption,
+           generosity = Generosity,
+           freedom = Freedom.to.make.life.choices, 
+           life_expectancy = Healthy.life.expectancy, 
+           social_support = Social.support,
+           GDP_per_capita = Logged.GDP.per.capita, 
+           happiness = Ladder.score
+           )
+```
+
+```{r}
+ggcorr(happy_cor, 
+       method = c("everything", "pearson"), 
+       low = '#bac2d4', mid = '#d4d1cd', high = "#a7797f",
+       label = TRUE, label_size = 6,
+       layout.exp = 1) +
+labs(title = 'Correlation Matrix',
+    subtitle = 'Happiness most strongly correlates with (1) wealth (GDP)\n(2) health, (3) social support, and (4) freedom') 
+
+```
+
+
+# Conclusion
+
+The happiness regions in the world are North America and Western Europe.
+The unhappiness regions in the world are sahara Africa and Middle East, maybe for the reason of poverty and war.
+Three top drivers of happiness:
+(1) Wealth
+(2) Health
+(3) Social support
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
