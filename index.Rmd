@@ -1,0 +1,133 @@
+
+---
+title: "PM566 Final Project"
+author: "Xiaoyu Zhu"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+---
+
+<br>
+
+This is my PM566 Final Project website. I will showcase a few interactive visuals here.
+
+(Your output should look something like this)
+
+<br>
+
+```{r setup, message=FALSE, echo=FALSE, warning=FALSE}
+# import library
+library(data.table)
+library(dplyr)
+library(plotly)
+library(DT)
+library(knitr)
+library(tidyverse) 
+library(ggchicklet)
+library(cowplot)
+library(hrbrthemes)
+library(ggalt)
+library(GGally)
+library(rwa)
+library(psych)
+
+# Initialize code chunk options
+opts_chunk$set(
+  warning = FALSE,
+  message = FALSE,
+  eval=TRUE,
+  echo = TRUE,
+  cache = FALSE,
+  fig.width = 7, 
+  fig.align = 'center',
+  fig.asp = 0.618,
+  out.width = "700px",
+  class.source = "code-r")
+```
+
+```{css, echo = FALSE}
+.code-r { /* Code block */
+  font-size: 15px;
+}
+
+.code-r-small { /* Code block */
+  font-size: 10px;
+}
+```
+
+<br>
+
+# Introduction
+
+
+World Happiness Report 2021 use data that come from the Gallup World Poll surveys from 2018 to 2020. They are based on answers to the main life evaluation question asked in the poll. This is called the Cantril ladder: it asks respondents to think of a ladder, with the best possible life for them being a 10, and the worst possible life being a 0. They are then asked to rate their own current lives on that 0 to 10 scale. The rankings are from nationally representative samples, for the years 2018-2020. They are based entirely on the survey scores, using the Gallup weights to make the estimates representative. 
+
+the data concludes main variable that is Ladder.score, leading to the core index of people happiness. There are other six variables that researchers put into data frame:
+Logged.GDP.per.capita: means logged GDP every captical
+Social.support: the quality of social support 
+Healthy.life.expectancy: healthy or not
+Freedom.to.make.life.choices: people's feeling on freedom to make life choice
+Generosity: the quality of being kind and generous.
+Perceptions.of.corruption: the perceptions of corruption
+
+And we want to illustrates data storytelling with the World Happiness Report (2021) data. Also we want to know what variable is related to people happiness from perspective of country.
+
+
+First I will source any necessary code, e.g. `process_covid_data.R`:
+
+```{r load-data}
+#read the data
+happy_2021<-read.csv("world-happiness-report-2021.csv")
+
+```
+
+<br>
+
+# Method
+
+Then I will add some code to create the **plotly** figures
+```{r table1, class.source="code-r-small"}
+#briefly check the data
+head(happy_2021)
+```
+
+```{r table2, class.source="code-r-small"}
+describe(happy_2021)
+```
+
+```{r plot1, class.source="code-r-small"}
+# see the distribution of people happiness
+p1_scatter<-
+happy_2021%>%
+ggplot(aes(x=Regional.indicator,y=Ladder.score,color=Regional.indicator))+
+  geom_point()+
+  geom_boxplot()
+```
+
+```{r plot2, class.source="code-r-small"}
+p2_scatter<-
+# see the distribution of GDP
+happy_2021%>%
+ggplot(aes(x=Regional.indicator,y=Logged.GDP.per.capita,color=Regional.indicator))+
+  geom_point()+
+  geom_boxplot()
+```
+
+Create tabs to display each figure
+
+### Scatterplot1
+
+```{r p1}
+p1_scatter
+```
+
+### Scatterplot2
+
+```{r p2}
+p2_scatter
+```
+
+
+<br>
+<br>
