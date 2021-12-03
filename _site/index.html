@@ -407,6 +407,24 @@ happy_2021%&gt;%
 ggplot(aes(x=Regional.indicator,y=Logged.GDP.per.capita,color=Regional.indicator))+
   geom_point()+
   geom_boxplot()</code></pre>
+<pre class="r code-r-small"><code># see the distribution of social support
+p3_scatter&lt;-
+happy_2021%&gt;%
+ggplot(aes(x=Regional.indicator,y=Social.support,color=Regional.indicator))+
+  geom_point()+
+  geom_boxplot()</code></pre>
+<pre class="r code-r-small"><code># see the distribution of life expectancy
+p4_scatter&lt;-
+happy_2021%&gt;% 
+ggplot(aes(x=Regional.indicator,y=Healthy.life.expectancy,color=Regional.indicator))+
+  geom_point()+
+  geom_boxplot()</code></pre>
+<pre class="r code-r-small"><code># see the distribution of freedom to make life choices
+p5_scatter&lt;-
+happy_2021%&gt;%
+ggplot(aes(x=Regional.indicator,y=Freedom.to.make.life.choices,color=Regional.indicator))+
+  geom_point()+
+  geom_boxplot()</code></pre>
 <p>Create tabs to display each figure</p>
 <div id="scatterplot1" class="section level3">
 <h3>Scatterplot1</h3>
@@ -416,9 +434,102 @@ ggplot(aes(x=Regional.indicator,y=Logged.GDP.per.capita,color=Regional.indicator
 <div id="scatterplot2" class="section level3">
 <h3>Scatterplot2</h3>
 <pre class="r code-r"><code>p2_scatter</code></pre>
-<p><img src="index_files/figure-html/p2-1.png" width="700px" style="display: block; margin: auto;" /></p>
-<p><br> <br></p>
+<p><img src="index_files/figure-html/p2-1.png" width="700px" style="display: block; margin: auto;" /> ### Scatterplot3</p>
+<pre class="r code-r"><code>p3_scatter</code></pre>
+<p><img src="index_files/figure-html/p3-1.png" width="700px" style="display: block; margin: auto;" /></p>
 </div>
+<div id="scatterplot4" class="section level3">
+<h3>Scatterplot4</h3>
+<pre class="r code-r"><code>p4_scatter</code></pre>
+<p><img src="index_files/figure-html/p4-1.png" width="700px" style="display: block; margin: auto;" /></p>
+</div>
+<div id="scatterplot5" class="section level3">
+<h3>Scatterplot5</h3>
+<pre class="r code-r"><code>p5_scatter</code></pre>
+<p><img src="index_files/figure-html/p5-1.png" width="700px" style="display: block; margin: auto;" /></p>
+<p><br></p>
+</div>
+</div>
+<div id="preliminary-result" class="section level1">
+<h1>Preliminary Result</h1>
+<p><br> ## Fig 1. Ten happinest countries in the world</p>
+<pre class="r code-r"><code># dimensions
+dimensions &lt;- c(&#39;Ladder.score&#39;,&#39;Logged.GDP.per.capita&#39;,&#39;Social.support&#39;,&#39;Healthy.life.expectancy&#39;,&#39;Freedom.to.make.life.choices&#39;,&#39;Generosity&#39;,&#39;Perceptions.of.corruption&#39;)
+
+# map country to regions
+country_region_dict = happy_2021 %&gt;% select(country = Country.name, region = Regional.indicator) %&gt;% unique()
+
+happy_2021_long &lt;- happy_2021 %&gt;% 
+    select(country = Country.name, all_of(dimensions)) %&gt;%
+    mutate(absence_of_corruption = 1- Perceptions.of.corruption) %&gt;%
+    pivot_longer(cols = c(all_of(dimensions),&#39;absence_of_corruption&#39;), names_to = &#39;dimension&#39;, values_to = &#39;score&#39;) %&gt;%
+    filter(dimension != &quot;Perceptions.of.corruption&quot;)
+
+happy_2021_tranformed &lt;- happy_2021_long %&gt;%
+    group_by(dimension) %&gt;%
+    mutate(min_value = min(score),
+             max_value = max(score)) %&gt;%
+    mutate(score_pct = (score-min_value)/(max_value-min_value)) %&gt;%
+    ungroup()
+# get top 10
+happy_2021_top10 &lt;- happy_2021_tranformed %&gt;%
+    filter(dimension == &quot;Ladder.score&quot;) %&gt;%
+    slice_max(score, n = 10) %&gt;%
+    mutate(cat = &#39;top_10&#39;, 
+           country_rank = rank(-score),
+           country_label = paste0(country, &#39; (&#39;, country_rank, &#39;)&#39;))
+
+# get bottom 10
+happy_2021_bottom10 &lt;- happy_2021_tranformed %&gt;%
+    filter(dimension == &quot;Ladder.score&quot;) %&gt;%
+    mutate(country_rank = rank(score),
+           country_label = paste0(country, &#39; (&#39;, country_rank, &#39;)&#39;)) %&gt;%
+    slice_min(score, n = 10) %&gt;%
+    mutate(cat = &#39;bottom_10&#39;)</code></pre>
+<pre class="r code-r"><code>ggplot(happy_2021_top10, aes(x = reorder(country_label, score))) + 
+  geom_chicklet(aes(y = 10, fill = 4.88), width = 0.88) +
+  geom_chicklet(aes(y = score, fill = score), width = 0.88) +
+  geom_text(aes(y = score), label = round(happy_2021_top10$score,2), nudge_y = 0.4, size = 6) + 
+  scale_y_continuous(expand = c(0, 0.1), position = &quot;right&quot;, limits = c(0, 10)) +
+  scale_fill_gradient2(low = &#39;#bc9575&#39;, high = &#39;#7FB188&#39;, mid = &#39;white&#39;, midpoint = 5) + 
+  coord_flip() +
+  labs(y=&quot;Happinest possible life = 10&quot;, x = &#39;&#39;,
+       title=&quot;10 Happiest Countries in the World&quot;)</code></pre>
+<p><img src="index_files/figure-html/unnamed-chunk-3-1.png" width="700px" style="display: block; margin: auto;" /> <br> ## Fig 2. Ten saddest countries in the world</p>
+<pre class="r code-r"><code>ggplot(happy_2021_bottom10, aes(x = reorder(country_label, score))) + 
+  geom_chicklet(aes(y = 10, fill = 4.88), width = 0.88) +
+  geom_chicklet(aes(y = score, fill = score), width = 0.88) +
+  geom_text(aes(y = score), label = round(happy_2021_bottom10$score,2), nudge_y = 0.4, size = 6) + 
+  scale_y_continuous(expand = c(0, 0.1), position = &quot;right&quot;, limits = c(0, 10)) +
+  scale_fill_gradient2(low = &#39;#656667&#39;, high = &#39;#bc9575&#39;, mid = &#39;white&#39;, midpoint = 5) + 
+  coord_flip() +
+  labs(y=&quot;Happinest possible life = 10&quot;, x = &#39;&#39;,
+       title=&quot;10 Saddest Countries in the World&quot;,
+       subtitle=&quot;Countries torn by poverty and war&quot;,
+       caption=&quot;Source: The World Happiness Report 2021&quot;) </code></pre>
+<p><img src="index_files/figure-html/unnamed-chunk-4-1.png" width="700px" style="display: block; margin: auto;" /> <br> ## Fig 3. Correlation Matrix ### What factors most strongly correlate with happiness?</p>
+<pre class="r code-r"><code>happy_cor &lt;- happy_2021 %&gt;% 
+    select(corruption = Perceptions.of.corruption,
+           generosity = Generosity,
+           freedom = Freedom.to.make.life.choices, 
+           life_expectancy = Healthy.life.expectancy, 
+           social_support = Social.support,
+           GDP_per_capita = Logged.GDP.per.capita, 
+           happiness = Ladder.score
+           )</code></pre>
+<pre class="r code-r"><code>ggcorr(happy_cor, 
+       method = c(&quot;everything&quot;, &quot;pearson&quot;), 
+       low = &#39;#bac2d4&#39;, mid = &#39;#d4d1cd&#39;, high = &quot;#a7797f&quot;,
+       label = TRUE, label_size = 6,
+       layout.exp = 1) +
+labs(title = &#39;Correlation Matrix&#39;,
+    subtitle = &#39;Happiness most strongly correlates with (1) wealth (GDP)\n(2) health, (3) social support, and (4) freedom&#39;) </code></pre>
+<p><img src="index_files/figure-html/unnamed-chunk-6-1.png" width="700px" style="display: block; margin: auto;" /> <br></p>
+</div>
+<div id="conclusion" class="section level1">
+<h1>Conclusion</h1>
+<p>The happiness regions in the world are North America and Western Europe. The unhappiness regions in the world are sahara Africa and Middle East, maybe for the reason of poverty and war. Three top drivers of happiness: (1) Wealth (2) Health (3) Social support</p>
+<p><br></p>
 </div>
 
 
