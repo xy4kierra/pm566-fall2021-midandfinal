@@ -1,5 +1,5 @@
 
-# Assignment 5 & Final project 
+# PM566 final project: Prediction model of Diabetes
 <br>
 
 This is my PM566 Final Project website home. The website is online at
