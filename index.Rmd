@@ -1,44 +1,44 @@
-
 ---
-title: "PM566 Final Project"
-author: "Xiaoyu Zhu"
-output: 
-    html_document:
-        toc: TRUE
-        toc_float: TRUE
+title: 'PM566 final project: Prediction model of Diabetes'
+author: "_Xiaoyu Zhu_"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+    editor_options: 
+  chunk_output_type: inline
 ---
-
-<br>
-
-This is my PM566 Final Project website. I will showcase a few interactive visuals here.
-
-(Your output should look something like this)
-
-<br>
 
 ```{r setup, message=FALSE, echo=FALSE, warning=FALSE}
-# import library
+#library packages
 library(data.table)
+library(tidyverse)
 library(dplyr)
 library(plotly)
 library(DT)
 library(knitr)
-library(tidyverse) 
-library(ggchicklet)
-library(cowplot)
-library(hrbrthemes)
-library(ggalt)
-library(GGally)
-library(rwa)
-library(psych)
+library(sjPlot)
+library(ggpubr)
+library(skimr)
+library(olsrr)
+library(mfp)
+library(latexpdf)
 
-# Initialize code chunk options
+#load functions
+source("logit_plot.R")
+source("group_smooth.R")
+source("plot_resid_lev_logistic.R")
+source("pois_pearson_gof.R")
+
+# INITALIZE CODE CHUNK OPTIONS
 opts_chunk$set(
   warning = FALSE,
   message = FALSE,
   eval=TRUE,
-  echo = TRUE,
-  cache = FALSE,
+  echo = FALSE,
+  cache = TRUE,
   fig.width = 7, 
   fig.align = 'center',
   fig.asp = 0.618,
@@ -46,454 +46,368 @@ opts_chunk$set(
   class.source = "code-r")
 ```
 
-```{css, echo = FALSE}
-.code-r { /* Code block */
-  font-size: 15px;
-}
+# __Introduction__
 
-.code-r-small { /* Code block */
-  font-size: 10px;
-}
-```
+Diabetes is a chronic (long-lasting) health condition that affects how your body turns food into energy. Most of the food you eat is broken down into sugar (also called glucose) and released into your bloodstream. When your blood sugar goes up, it signals your pancreas to release insulin. The growing human and economic toll of diabetes has caused consternation worldwide. Not only is the number of people affected increasing at an alarming rate, but onset of the major forms of the disease occurs at ever younger ages. We now know that the reach of diabetes extends far beyond the classic acute metabolic and chronic vascular complications to increased risk of an ever-increasing array of conditions including Alzheimer disease, cancer, liver failure, bone fractures, depression, and hearing loss.In the U.S. one in three Medicare dollars is spent on care of people with diabetes, and the proportion of cardiovascular disease (CVD) risk attributable to diabetes is rising.
 
-<br>
-
-# Introduction
+However, diabetes was being underestimated for its importance, and always being analysed as an effect rathan than results. 
 
 
-World Happiness Report 2021 use data that come from the Gallup World Poll surveys from 2018 to 2020. They are based on answers to the main life evaluation question asked in the poll. This is called the Cantril ladder: it asks respondents to think of a ladder, with the best possible life for them being a 10, and the worst possible life being a 0. They are then asked to rate their own current lives on that 0 to 10 scale. The rankings are from nationally representative samples, for the years 2018-2020. They are based entirely on the survey scores, using the Gallup weights to make the estimates representative. 
-<br>
-the data concludes main variable that is Ladder.score, leading to the core index of people happiness. There are other six variables that researchers put into data frame:
-<br>
-Logged.GDP.per.capita: means logged GDP every captical
-<br>
-Social.support: the quality of social support 
-<br>
-Healthy.life.expectancy: healthy or not
-<br>
-Freedom.to.make.life.choices: people's feeling on freedom to make life choice
-<br>
-Generosity: the quality of being kind and generous.
-<br>
-Perceptions.of.corruption: the perceptions of corruption
+<br> 
 
-And we want to illustrates data storytelling with the World Happiness Report (2021) data. Also we want to know what variable is related to people happiness from perspective of country.
+## Data source
+The data is from Harvard dataverse, the website is https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/JAW6AX&version=2.0.
 
 
-First I will source any necessary code, e.g. `process_covid_data.R`:
+## Examine variables
 
-```{r load-data}
-#read the data
-happy_2021<-read.csv("world-happiness-report-2021.csv")
+__Lipotoxicity (1-17):__ lipotoxicity is a metabolic syndrome that results from the accumulation of lipid intermediates in non-adipose tissue, leading to cellular dysfunction and death.
 
-```
+__Glucose (mmol/L):__ blood glucose level obtained by measuring plasma glucose concentration at 2 hours in an oral glucose tolerance test.
+
+__BloodPressure (mm Hg):__ the pressure of the blood in the circulatory system. 
+
+__SkinThickness (mm):__ skin thickness is primarily determined by collagen content and is increased in insulin-dependent diabetes mellitus.
+
+__Insulin(µU/ml):__ insulin is an anabolic hormone that promotes glucose uptake.
+
+__BMI:__ body mass index (BMI) is a person's weight in kilograms divided by the square of height in meters.
+
+__DiabetesPedigreeFunction (0:1 value generated from familial diabetes history/risk):__ diabetes pedigree function provides “a synthesis of the diabetes mellitus history in relatives and the genetic relationship of those relatives to the subject.” It generally provides scores of the likelihood of diabetes based on family history. The DPF uses information from parents, grandparents, siblings, aunts and uncles, and first cousins. It provides a measure of the expected genetic influence of affected and unaffected relatives on the subject’s eventual diabetes risk. 
+
+__Age:__ age of the individual.
+
+__Outcome:__ diabetes test result (0 = Non-diabetic, 1 = Diabetic).
+
+
+## Key questions
+
+Is there a significant difference in values of diabetes risk factors for those who have diagnosed with diabetes and those who are not? Is Diabetes Pedigree Function significantly associated with the onset of diabetes and other risk factors? Could these risk factors provide a reliable prediction of individual's diabetes?
+
 
 <br>
 
-# Method
+# __Methods__
 
-Then I will add some code to create the **plotly** figures
-```{r table1, class.source="code-r-small"}
-#briefly check the data
-head(happy_2021)
-```
 
-```{r table2, class.source="code-r-small"}
-describe(happy_2021)
-```
-
-```{r plot1, class.source="code-r-small"}
-# see the distribution of people happiness
-p1_scatter<-
-happy_2021%>%
-ggplot(aes(x=Regional.indicator,y=Ladder.score,color=Regional.indicator))+
-  geom_point()+
-  geom_boxplot()
-```
-
-```{r plot2, class.source="code-r-small"}
-p2_scatter<-
-# see the distribution of GDP
-happy_2021%>%
-ggplot(aes(x=Regional.indicator,y=Logged.GDP.per.capita,color=Regional.indicator))+
-  geom_point()+
-  geom_boxplot()
-```
-
-```{r plot3, class.source="code-r-small"}
-# see the distribution of social support
-p3_scatter<-
-happy_2021%>%
-ggplot(aes(x=Regional.indicator,y=Social.support,color=Regional.indicator))+
-  geom_point()+
-  geom_boxplot()
-```
-
-```{r plot4, class.source="code-r-small"}
-# see the distribution of life expectancy
-p4_scatter<-
-happy_2021%>% 
-ggplot(aes(x=Regional.indicator,y=Healthy.life.expectancy,color=Regional.indicator))+
-  geom_point()+
-  geom_boxplot()
-```
-
-```{r plot5, class.source="code-r-small"}
-# see the distribution of freedom to make life choices
-p5_scatter<-
-happy_2021%>%
-ggplot(aes(x=Regional.indicator,y=Freedom.to.make.life.choices,color=Regional.indicator))+
-  geom_point()+
-  geom_boxplot()
-```
-Create tabs to display each figure
-
-### Scatterplot1
-
-```{r p1}
-p1_scatter
-```
-
-### Scatterplot2
-
-```{r p2}
-p2_scatter
-```
-### Scatterplot3
-
-```{r p3}
-p3_scatter
-```
-
-### Scatterplot4
-
-```{r p4}
-p4_scatter
-```
-
-### Scatterplot5
-
-```{r p5}
-p5_scatter
-```
+Analysis through assessing various plots, tables and graphs was performed to identify association between Diabetes Pedigree Function and diabetes test outcome, including the examination of the effect of lipotoxicity, glucose level, blood pressure, skin thickness, insulin level, BMI, and age. The data was cleaned by replacing extreme values to 'NA's, shortening variable names, and creating new factor variable for better analysis. Skim function from skimr package was used to explore data. Dim, head and tail, summary, and table functions were used to check detailed observations. Age was stratified into four age groups(20-29, 30-39, 40-49, and 50+) for better understanding of relationship with diabetes. Outcome was binomial variable(0, 1) and it was transformed into factor variable (Non-diabetic and Diabetic).
 
 <br>
-
-# Preliminary Result
-<br>
-## Fig 1. Ten happinest countries in the world
-```{r}
-# dimensions
-dimensions <- c('Ladder.score','Logged.GDP.per.capita','Social.support','Healthy.life.expectancy','Freedom.to.make.life.choices','Generosity','Perceptions.of.corruption')
-
-# map country to regions
-country_region_dict = happy_2021 %>% select(country = Country.name, region = Regional.indicator) %>% unique()
-
-happy_2021_long <- happy_2021 %>% 
-    select(country = Country.name, all_of(dimensions)) %>%
-    mutate(absence_of_corruption = 1- Perceptions.of.corruption) %>%
-    pivot_longer(cols = c(all_of(dimensions),'absence_of_corruption'), names_to = 'dimension', values_to = 'score') %>%
-    filter(dimension != "Perceptions.of.corruption")
-
-happy_2021_tranformed <- happy_2021_long %>%
-    group_by(dimension) %>%
-    mutate(min_value = min(score),
-             max_value = max(score)) %>%
-    mutate(score_pct = (score-min_value)/(max_value-min_value)) %>%
-    ungroup()
-# get top 10
-happy_2021_top10 <- happy_2021_tranformed %>%
-    filter(dimension == "Ladder.score") %>%
-    slice_max(score, n = 10) %>%
-    mutate(cat = 'top_10', 
-           country_rank = rank(-score),
-           country_label = paste0(country, ' (', country_rank, ')'))
-
-# get bottom 10
-happy_2021_bottom10 <- happy_2021_tranformed %>%
-    filter(dimension == "Ladder.score") %>%
-    mutate(country_rank = rank(score),
-           country_label = paste0(country, ' (', country_rank, ')')) %>%
-    slice_min(score, n = 10) %>%
-    mutate(cat = 'bottom_10')
-
-```
-
 
 ```{r}
+diabetes <- read_csv("diabetes.csv")
 
-ggplot(happy_2021_top10, aes(x = reorder(country_label, score))) + 
-  geom_chicklet(aes(y = 10, fill = 4.88), width = 0.88) +
-  geom_chicklet(aes(y = score, fill = score), width = 0.88) +
-  geom_text(aes(y = score), label = round(happy_2021_top10$score,2), nudge_y = 0.4, size = 6) + 
-  scale_y_continuous(expand = c(0, 0.1), position = "right", limits = c(0, 10)) +
-  scale_fill_gradient2(low = '#bc9575', high = '#7FB188', mid = 'white', midpoint = 5) + 
-  coord_flip() +
-  labs(y="Happinest possible life = 10", x = '',
-       title="10 Happiest Countries in the World")
 ```
-<br>
-## Fig 2. Ten saddest countries in the world
-```{r}
 
-ggplot(happy_2021_bottom10, aes(x = reorder(country_label, score))) + 
-  geom_chicklet(aes(y = 10, fill = 4.88), width = 0.88) +
-  geom_chicklet(aes(y = score, fill = score), width = 0.88) +
-  geom_text(aes(y = score), label = round(happy_2021_bottom10$score,2), nudge_y = 0.4, size = 6) + 
-  scale_y_continuous(expand = c(0, 0.1), position = "right", limits = c(0, 10)) +
-  scale_fill_gradient2(low = '#656667', high = '#bc9575', mid = 'white', midpoint = 5) + 
-  coord_flip() +
-  labs(y="Happinest possible life = 10", x = '',
-       title="10 Saddest Countries in the World",
-       subtitle="Countries torn by poverty and war",
-       caption="Source: The World Happiness Report 2021") 
+
+
+## Data Cleaning
+
+- 0 values in all risk factors are speculated as an absence of the specific test outcome because there were significant difference in values between all 0s and the next minimum values of each variable. All of them are edited to "NA"s. 
+
+```{r,include = FALSE}
+db <-
+  diabetes %>%
+  mutate(Lipotoxicity = replace(Lipotoxicity, Lipotoxicity==0, NA))%>%
+  mutate(Glucose = replace(Glucose, Glucose==0, NA)) %>%
+  mutate(BloodPressure = replace(BloodPressure, BloodPressure==0, NA)) %>%
+  mutate(SkinThickness = replace(SkinThickness, SkinThickness==0, NA)) %>%
+  mutate(Insulin = replace(Insulin, Insulin==0, NA)) %>%
+  mutate(BMI = replace(BMI, BMI==0, NA))
   
 ```
-<br>
-## Fig 3. Correlation Matrix
-### What factors most strongly correlate with happiness?
-```{r}
-happy_cor <- happy_2021 %>% 
-    select(corruption = Perceptions.of.corruption,
-           generosity = Generosity,
-           freedom = Freedom.to.make.life.choices, 
-           life_expectancy = Healthy.life.expectancy, 
-           social_support = Social.support,
-           GDP_per_capita = Logged.GDP.per.capita, 
-           happiness = Ladder.score
-           )
+
+- Variable names are renamed into lowercase letters with shorter length.
+
+```{r,include = FALSE}
+db <- 
+  db %>%
+  rename(
+    lip = Lipotoxicity,
+    glu = Glucose,
+    bp = BloodPressure,
+    st = SkinThickness,
+    ins = Insulin,
+    bmi = BMI,
+    dpf = DiabetesPedigreeFunction,
+    age = Age,
+    outcome = Outcome
+    )
 ```
 
-```{r}
-ggcorr(happy_cor, 
-       method = c("everything", "pearson"), 
-       low = '#bac2d4', mid = '#d4d1cd', high = "#a7797f",
-       label = TRUE, label_size = 6,
-       layout.exp = 1) +
-labs(title = 'Correlation Matrix',
-    subtitle = 'Happiness most strongly correlates with (1) wealth (GDP)\n(2) health, (3) social support, and (4) freedom') 
 
-```
-<br>
+- Created age groups (20-29, 30-39, 40-49, 50+) to compare proportion of the diabetes by age groups. 
 
-
-```{r}
-library(caTools)
-library(ggplot2)
-library(lattice)
-library(caret)
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(tidyverse)
-library(MASS)
-library(ggdark)
-df <- read.csv("/kaggle/input/world-happiness-report-2021/world-happiness-report-2021.csv")
-View(df)
-```
-
-```{r}
-#---------------------------Data Visualization-------------------------------
-
-#Regional Indicator
-data=df[,1:12]
-View(data)
-
-(by_Reional <- data %>% group_by(Regional.indicator))
-View(by_Reional)
-
-
-pl<- ggplot(data, aes(Regional.indicator, Ladder.score)) 
-pl+ geom_boxplot(aes(fill = factor(Regional.indicator)))+coord_flip()
+```{r,include = FALSE}
+db$age_group <- ifelse(db$age < 30, "20-29", 
+                         ifelse(db$age >= 30 & db$age < 40, "30-39",
+                                ifelse(db$age >= 40 & db$age < 50, "40-49", "50+")))
 
 ```
 
 ```{r}
-#pie chart
-
-Region_Scores <- aggregate(data$Ladder.score, by=list(Reions=data$Regional.indicator), FUN=mean)
-
-Region_Score_sort = arrange(Region_Scores, desc(Region_Scores$x))
-Region_Score_sort
-
-x <- Region_Scores$x
-lables <- Region_Scores$Reions
-
-pie(x, lables, main = "Regional.indicator scores" ,col = rainbow(length(x)))
+datatable(db)
 ```
-
-```{r}
-#Scatter plot
-
-ggplot(data = data , mapping = aes( x = Logged.GDP.per.capita, y =Ladder.score ,col= as.factor(Regional.indicator), size=Ladder.score))+ geom_point()
-library("ggpubr")
-
-fig1 <- ggplot(data = data , mapping = aes( x = Logged.GDP.per.capita, y =Ladder.score ,col= as.factor(Regional.indicator), size=Ladder.score))+ geom_point()+ theme(legend.position="top")
-fig2 <- ggplot(data = data , mapping = aes( x = Social.support, y =Ladder.score ,col= as.factor(Regional.indicator), size=Ladder.score))+ geom_point()+theme(legend.position = "none")
-
-fig3 <- ggplot(data = data , mapping = aes( x = Healthy.life.expectancy, y =Ladder.score ,col= as.factor(Regional.indicator), size=Ladder.score))+ geom_point()+theme(legend.position = "none")
-
-fig4 <- ggplot(data = data , mapping = aes( x = Freedom.to.make.life.choices, y =Ladder.score ,col= as.factor(Regional.indicator), size=Ladder.score))+ geom_point()+theme(legend.position = "none")
-
-fig5 <- ggplot(data = data , mapping = aes( x = Generosity, y =Ladder.score ,col= as.factor(Regional.indicator), size=Ladder.score))+ geom_point()+theme(legend.position = "none")
-
-fig6 <- ggplot(data = data , mapping = aes( x = Perceptions.of.corruption, y =Ladder.score ,col= as.factor(Regional.indicator), size=Ladder.score))+ geom_point()+theme(legend.position = "none")
-
-
-
-figure <- ggarrange(fig1, fig2, fig3, fig4, fig5, fig6,
-                    ncol = 2, nrow = 3)
-figure
-
-```
-
-```{r}
-#----------------bar plot--------------
-Region_Score_sort = arrange(Region_Scores, desc(Region_Scores$x))
-Region_Score_sort
-
-barplot(height= Region_Score_sort$x , xlab= 'Life Scores' , main ='Life Score of Regions', beside = T,
-        names.arg = Region_Score_sort$Reions , horiz = T , col=Region_Score_sort$x, las = 2 , 
-        cex.names = 0.5)
-```
-
-```{r}
-#---------------Countries---------------------------------------------------------------------------------
-
-q10 = quantile(data$Ladder.score, 0.10)
-q90 = quantile(data$Ladder.score, 0.90)
-q90
-
-Best_Countries=subset(data, data$Ladder.score >= q90 )
-Worse_Countries=subset(data, data$Ladder.score <= q10 )
-Best_and_Worse_Countries = rbind(Best_Countries,Worse_Countries )
-View(Best_and_Worse_Countries)
-
-
-barplot(height= Best_and_Worse_Countries$Ladder.score , xlab= 'Life Scores' , main ='Life Score of Best and Worse Countries', beside = T,
-        names.arg = Best_and_Worse_Countries$ï..Country.name , horiz = T , col=Best_and_Worse_Countries$Ladder.score, las = 2 , 
-        cex.names = 0.5)
-
-
-ggplot(data = Best_and_Worse_Countries , mapping = aes( x = Logged.GDP.per.capita, y =Ladder.score ,col= 
-                                      as.factor(Country.name), size=Ladder.score))+ geom_point()+ theme_dark()
-
-
-
-```
-
-```{r}
-library("ggpubr")
-
-fig1 <- ggplot(data = Best_and_Worse_Countries , mapping = aes( x = Logged.GDP.per.capita, y =Ladder.score ,col= 
-                                                                  as.factor(Country.name), size=Ladder.score))+ geom_point()+ theme(legend.position="left")
-
-
-fig2 <- ggplot(data = Best_and_Worse_Countries , mapping = aes( x = Social.support, y =Ladder.score ,col= 
-                                                                  as.factor(Country.name), size=Ladder.score))+ geom_point()+theme(legend.position = "none")
-
-fig3 <- ggplot(data = Best_and_Worse_Countries , mapping = aes( x = Healthy.life.expectancy, y =Ladder.score ,col= 
-                                                                  as.factor(Country.name), size=Ladder.score))+ geom_point()+theme(legend.position = "none")
-
-
-fig4 <- ggplot(data = Best_and_Worse_Countries , mapping = aes( x = Freedom.to.make.life.choices, y =Ladder.score ,col= 
-                                                                  as.factor(Country.name), size=Ladder.score))+ geom_point()+theme(legend.position = "none")
-
-
-
-fig5 <- ggplot(data = Best_and_Worse_Countries , mapping = aes( x = Generosity, y =Ladder.score ,col= 
-                                                                  as.factor(Country.name), size=Ladder.score))+ geom_point()+theme(legend.position = "none")
-
-figure <- ggarrange(fig1, fig2, fig3, fig4, fig5, fig6,
-                    ncol = 2, nrow = 3)
-figure
-
-```
-
-```{r}
-#----------------------report for all years--------------------
-df_y<- read_csv("/kaggle/input/world-happiness-report-2021/world-happiness-report.csv")
-View(df_y)
-#sorting countries based on mean Scores over years and selecting top 10
-countries_Scores <- aggregate(df_y$`Life Ladder`, by=list(Country=df_y$`Country name`), FUN=mean)
-
-Country_Score_sort = arrange(countries_Scores, desc(countries_Scores$x))
-Country_Score_sort
-
-#selecting top 10 countries in year 2020
-
-(Top_Countries = Country_Score_sort[1:10,])
-
-df_2020=subset(df_y, df_y$year == 2020)
-countries_Scores_2020 = arrange(df_2020,desc(df_2020$`Life Ladder`) )
-top_contries2020 = countries_Scores_2020[1:10,c(1,3)]
-top_contries2020
-
-df_Finland =filter(df_y, `Country name` == 'Finland')
-
-plot(df_Finland$year, df_Finland$`Life Ladder` , type ="l" , lwd=2 , lty = 1 , 
-     col = "Orange" , main = "Life Ladder over Years in Finland")
-
-
-#plot scores of top contires over years in a graph usinf ggplot
-top_countries <- c('Finland', 'Iceland','Denmark','Switzerland', 'Netherlands','Norway'  )
-
-df_top_countries <- filter(df_y, `Country name` %in% top_countries)
-
-View(df_top_countries)
-df_top_countries_1 <- df_top_countries[,1:3]
-
-
-ggplot(df_top_countries_1, aes(x = year, y = `Life Ladder`)) + 
-        geom_line(aes(color =`Country name`, linetype = `Country name`), size = 1.1) + 
-        scale_color_manual(values = c("darkred", "steelblue" , "red" , "blue", "yellow", "green"))+ theme_dark()
-
-
-```
-
-
-```{r}
-#--------------Forecasting_______________________________________________________________---
-
-View(df_y)
-
-data_year <- data.frame(
-        Country_name = df_y$`Country name`,
-        year = df_y$year,
-        Log_GDP_per_capita = df_y$`Log GDP per capita`,
-        Social_support = df_y$`Social support`,
-        Healthy_life_expectancy_at_birth = df_y$`Healthy life expectancy at birth`,
-        Freedom_to_make_life_choices = df_y$`Freedom to make life choices`,
-        Generosity = df_y$Generosity,
-        Perceptions_of_corruption= df_y$`Perceptions of corruption`,
-        Positive_affect= df_y$`Positive affect`,
-        Negative_affect= df_y$`Negative affect`,
-        Life_Ladder = df_y$`Life Ladder`
-)
-
-
-data_f <- data_year
-
-sum(is.na(data_f))
-dim(data_f)
-
-data_f <- na.omit(data_f)
-dim(data_f)
-
-data_f$year <- as.integer(as.factor(data_f$year))
-data_f$Country_name <- as.integer(as.factor(data_f$Country_name ))
-
-
-View(data_f)
-```
-
-# Conclusion
-
-The happiness regions in the world are North America and Western Europe.
-The unhappiness regions in the world are sahara Africa and Middle East, maybe for the reason of poverty and war.
-Three top drivers of happiness:
-(1) Wealth
-(2) Health
-(3) Social support
 
 <br>
+
+# __Results__
+
+<br>
+
+## Histogram of Diabetes outcome by age groups
+
+- Age is a significant risk factor for diabetes. As age is a well-known confounder of most diseases, it could also play a role as a confounder when generating a prediction model. Through this histogram, I can confirm that age affects the onset of diabetes.
+
+```{r}
+db <-
+  db %>%
+  mutate(outcome_f = factor(outcome))
+
+db$outcome_f <- if_else(db$outcome_f == 0, "Non-diabetic", "Diabetic")
+
+p0 <- 
+  db %>%
+  ggplot()+
+  geom_bar(mapping = aes(x = age_group, fill = outcome_f))+
+  scale_fill_manual(name = "Diabetes", values = c("salmon", "cyan3"))+
+  labs(title = "Diabetes Outcome by Age Groups") +
+  labs(x = "Age Group", y = "Count")
+
+ggplotly(p0)
+
+```
+
+
+## Mean Values of Each Risk Factors by Outcome Group
+- All of the predictors are showing some differences in mean values by diabetes outcome, meaning that these predictors can be utilized for a prediction model.
+
+- Diabetes test outcome: 0 (Non-diabetic), 1 (Diabetic).
+
+```{r}
+db_ot <- 
+  db %>% 
+  group_by(outcome)
+  
+db_table <-
+  db_ot %>%
+  summarise(
+    DiabetesPedigreeFunction=mean(dpf, na.rm = TRUE),
+    Lipotoxicity=mean(lip, na.rm = TRUE),
+    Glucose=mean(glu, na.rm = TRUE),
+    BloodPressur=mean(bp, na.rm = TRUE),
+    SkinThickness=mean(st, na.rm = TRUE),
+    Insulin=mean(ins, na.rm = TRUE),
+    BMI=mean(bmi, na.rm = TRUE),
+    Age=mean(age, na.rm = TRUE),
+    )
+
+knitr::kable(db_table, align= "c", digits = 2, caption = "Mean of Each Risk Factors by Outcome Group")
+```
+<br>
+
+## Box Plot of each risk factors by outcome {.tabset}
+- Among the predictors, Glucose Level, Insulin level, and BMI show significant differences in mean values by outcome group. 
+- Insulin level is a direct indicator of discernment between type 1 and 2 diabetes. This predictor can be treated differently by the type of diabetes. In this dataset, it is presumed that there were more type 2 diabetes in the patient group as the result shows that mean insulin level is higher in the diabetic group. 
+- Although lipotoxicity is showing a meaningful gap between the diabetes and non-diabetes group, it will be excluded from further analysis because the data has a high NA proportion and the test for measuring lipotoxicity is not common. 
+- Skin thickning is a symptom detected from patients with insulin-dependent diabetes mellitus (IDDM). It means this data only applies to type 1 diabetes.
+- Blood Pressure does not show significant difference by diabetes outcome.
+
+### Lipotoxicity
+
+```{r}
+lip_plot <- ggplot(db_ot, aes(x=outcome_f, y=lip, color=outcome_f, fill=outcome_f)) +
+  scale_fill_manual(name = "Diabetes", values = c("salmon", "cyan3")) +
+  scale_colour_manual(name = NULL, values = c("black", "black")) +
+  labs(title = "Lipotoxicity Level by Diabetes Outcome Group") +
+  labs(x = "Diabetes", y = "Lipotoxicity")+
+  geom_boxplot()
+ggplotly(lip_plot)
+```
+
+### Glucose Level
+
+```{r}
+glu_plot <- ggplot(db_ot, aes(x=outcome_f, y=glu, color=outcome_f, fill=outcome_f)) +
+  scale_fill_manual(name = "Diabetes", values = c("salmon", "cyan3")) +
+  scale_colour_manual(name = NULL, values = c("black", "black")) +
+  labs(title = "Glucose Level by Diabetes Outcome Group") +
+  labs(x = "Diabetes", y = "Glucose (mmol/L)")+
+  geom_boxplot()
+ggplotly(glu_plot)
+```
+
+### Blood Pressure
+
+```{r}
+bp_plot <- ggplot(db_ot, aes(x=outcome_f, y=bp, color=outcome_f, fill=outcome_f)) +
+  scale_fill_manual(name = "Diabetes", values = c("salmon", "cyan3")) +
+  scale_colour_manual(name = NULL, values = c("black", "black")) +
+  labs(title = "Blood Pressure by Diabetes Outcome Group") +
+  labs(x = "Diabetes", y = "Blood Pressure (mm Hg)")+
+  geom_boxplot()
+ggplotly(bp_plot)
+```
+
+### Skin Thickness
+
+```{r}
+st_plot <- ggplot(db_ot, aes(x=outcome_f, y=st, color=outcome_f, fill=outcome_f)) +
+  scale_fill_manual(name = "Diabetes", values = c("salmon", "cyan3")) +
+  scale_colour_manual(name = NULL, values = c("black", "black")) +
+  labs(title = "Skin Thickness by Diabetes Outcome Group") +
+  labs(x = "Diabetes", y = "Skin Thickness (mm)")+
+  geom_boxplot()
+ggplotly(st_plot)
+```
+
+### Insulin Level
+
+```{r}
+ins_plot <- ggplot(db_ot, aes(x=outcome_f, y=ins, color=outcome_f, fill=outcome_f)) +
+  scale_fill_manual(name = "Diabetes", values = c("salmon", "cyan3")) +
+  scale_colour_manual(name = NULL, values = c("black", "black")) +
+  labs(title = "Insulin Level by Diabetes Outcome Group") +
+  labs(x = "Diabetes", y = "Insulin (µU/ml)")+
+  geom_boxplot()
+ggplotly(ins_plot)
+```
+
+### BMI
+
+```{r}
+bmi_plot <- ggplot(db_ot, aes(x=outcome_f, y=bmi, color=outcome_f, fill=outcome_f)) +
+  scale_fill_manual(name = "Diabetes", values = c("salmon", "cyan3")) +
+  scale_colour_manual(name = NULL, values = c("black", "black")) +
+  labs(title = "BMI by Diabetes Outcome Group") +
+  labs(x = "Diabetes", y = "BMI")+
+  geom_boxplot()
+ggplotly(bmi_plot)
+```
+
+
+## Plots of Diabetes Outcome by Diabetes Pedigree Function {.tabset}
+
+- The histogram shows that Diabetes Pedigree Function follows Poisson distribution. Poisson regression could be used for further analysis.
+- The proportion of diabetic outcome increases over Diabetes Pedigree Fucgion. From dpf 0.24 to 0.48 section, proportion of diabetic vs non-diabetic is approximately 1:2. In 0.56 to 0.72 section, the ratio is 2:3 and in 0.8 and over section, the ratio become close to 1:1.
+- Boxplot also shows that there is a significant difference in Diabetes Pedigree Function value between diabetic and non-diabetic group. There is more research needed for the outliers without diabetes.
+
+### Histogram
+
+```{r}
+p1 <- ggplot(db, aes(x=dpf, color=outcome_f, fill=outcome_f)) +
+  scale_fill_manual(name = "Diabetes", values = c("salmon", "cyan3")) +
+  scale_colour_manual(name = NULL, values = c("black", "black")) +
+  labs(title = "Diabetes Pedigree Fuction Distribution by Diabetes Outcome") +
+  labs(x = "Diabetes Pedigree Function", y = "Count")+
+  geom_histogram()
+ggplotly(p1)
+
+```
+
+### Boxplot
+
+```{r}
+dpf_plot <- ggplot(db_ot, aes(x=outcome_f, y=dpf, color=outcome_f, fill=outcome_f)) +
+  scale_fill_manual(name = "Diabetes", values = c("salmon", "cyan3")) +
+  scale_colour_manual(name = NULL, values = c("black", "black")) +
+  labs(title = "Diabetes Pedigree Fuction by Diabetes Outcome Group") +
+  labs(x = "Diabetes", y = "Diabetes Pedigree Function")+
+  geom_boxplot()
+ggplotly(dpf_plot)
+```
+
+
+## Scatter Plot Graph of Significant Risk Factors vs Diabetes Pedigree Function by Diabetes Outcome Group  {.tabset}
+
+- Glucose level and diabetes pedigree fuction interact well to distinguish diabetic section and non-diabetic section.
+- Insulin level is not effective on marking off diabetic section in this scatter plot. However, it could be different when it only applies to the dataset of patients who entirely has one of two types of diabetes.
+- BMI is also a good partner of diabetes pedigree function. 
+
+### Glucose vs DPF
+
+```{r}
+db_ot %>% 
+  plot_ly(x = ~dpf, y = ~glu, 
+          type = 'scatter', mode = 'markers', color = ~outcome_f, colors = "Set1",
+          hoverinfo = 'text',
+          text = ~paste( paste("Diabetes Outcome:", outcome_f, sep=""), paste(" Diabetes Pedigree Function: ", dpf, sep="") , paste(" Glucose Level: ", glu, sep=""), sep = "<br>")) %>%
+  layout(title = "Glucose Level vs Diabetes Pedigree Function by oucome",
+                  yaxis = list(title = "Glucose Level"), xaxis = list(title = "Diabetes Pedigree Function"),
+         hovermode = "compare")
+```
+
+<br>
+
+### Insulin vs DPF
+
+```{r}
+db_ot %>% 
+  plot_ly(x = ~dpf, y = ~ins, 
+          type = 'scatter', mode = 'markers', color = ~outcome_f, colors = "Set1",
+          hoverinfo = 'text',
+          text = ~paste( paste("Diabetes Outcome:", outcome_f, sep=""), paste(" Diabetes Pedigree Function: ", dpf, sep="") , paste(" Insulin Level: ", ins, sep=""), sep = "<br>")) %>%
+  layout(title = "Insulin Level vs Diabetes Pedigree Function by oucome",
+                  yaxis = list(title = "Insulin Level"), xaxis = list(title = "Diabetes Pedigree Function"),
+         hovermode = "compare")
+```
+
+### BMI vs DPF
+
+```{r}
+db_ot %>% 
+  plot_ly(x = ~dpf, y = ~bmi, 
+          type = 'scatter', mode = 'markers', color = ~outcome_f, colors = "Set1",
+          hoverinfo = 'text',
+          text = ~paste( paste("Diabetes Outcome:", outcome_f, sep=""), paste(" Diabetes Pedigree Function: ", dpf, sep="") , paste(" BMI: ", bmi, sep=""), sep = "<br>")) %>%
+  layout(title = "BMI vs Diabetes Pedigree Function by oucome",
+                  yaxis = list(title = "BMI"), xaxis = list(title = "Diabetes Pedigree Function"),
+         hovermode = "compare")
+```
+
+## Prediction Model
+
+- Based on th analysis above, prediction model was built including DPF, lipotoxicity, glucose level, insulin levle, BMI, and age as predictors. The final training model concluded with around 80% Accuracy, which indicates good prediction ability of the model. Along with the good accuracy value, around 60% Sensitivity, 90% Specificity, 70% Positive Prediction Value, and 80% Negative Prediction Value was obtained from the model.
+
+
+```{r}
+library(mfp)
+library(ROCit)
+library(interactions)
+source("plot_resid_lev_logistic.R")
+source("logit_plot.R")
+source("group_smooth.R")
+```
+
+```{r}
+with(db,
+     gmodels::CrossTable(outcome))
+
+db_pred <-
+db %>%
+  mutate(training = sample(0:1, nrow(.),prob=c(.3, .7), replace=T))
+
+db_train <- db_pred %>% filter(training == 1)
+db_test  <- db_pred %>% filter(training == 0)
+
+```
+
+```{r}
+final_model <- glm(outcome ~ dpf + lip + glu + ins + bmi + age + ins*dpf, family=binomial, data=db_train) 
+```
+
+```{r}
+DescTools::Conf(final_model, pos = 1)
+```
+
+```{r eval=FALSE}
+# Extend to the testing data set
+final_model_test <- glm(outcome ~ dpf + lip + glu + ins + bmi + age + ins*dpf, family=binomial, data=db_test) 
+
+DescTools::Conf(final_model_test, pos = 1)
+```
+
+# __Conclusion__
+
+Overall, most of the predictors displayed differences in mean values when it compares between diabetic and non-diabetic groups. The interesting predictor was diabetes pedigree function because, unlike other risk factors, DPF could be measured by relatives history and genetic data. This is the only predictor that can be obained by external sources other than individual's biological test result. In the analysis, diabetes pedigree function showed its association with the onset of diabetes. Although it is hard to predict the risk of diabetes with diabetes pedigree fuction alone, the analysis showed a possibility of utilization of other risk factors combined with diabetes pedigree funtion in prediction model. In this study, glucose level and BMI provided evidence of significant association with onset of diabetes in conjunction of diabetes pedigree function. Insulin level and lipotoxicity also showed some association to be part of prediction model. Through this study, I found out that prediction model for diabetes could be built with relevant predictors such as diabetes pedigree function, glucose level, insulin level, lipotoxicity, BMI, and age. Further study will be needed with larger dataset for better accuracy. Overall, this study can be a good starting point of further research.
+

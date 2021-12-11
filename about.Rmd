@@ -1,0 +1,14 @@
+---
+title: "About"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+---
+
+#Contact Information
+<br>
+Xiaoyu Zhu
+<br>
+Email: xzhu1744@usc.edu
+
