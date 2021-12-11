@@ -5,6 +5,11 @@ navbar:
   left:
     - text: "Home"
       href: index.html
+      - text: "About"
+      href: about.html
+  right:
+    - text: "PDF Report"
+      href: final.pdf
 output:
   html_document:
     theme: paper
